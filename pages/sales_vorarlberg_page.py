@@ -18,10 +18,13 @@ import pandas as pd
 data = pd.read_csv("data/data_vorarlberg.csv")
 
 def change_category(state):
-    state.subcategories = list(
-        data[data["Category"] == state.selected_category]["Sub-Category"].unique()
-    )
-    state.selected_subcategory = state.subcategories[0]
+    if state.selected_category == "All":
+        state.subcategories = ["All"] + sorted(list(data["Sub-Category"].unique()))
+        state.selected_subcategory = "All"
+    else:
+        state.subcategories = ["All"] + sorted(list(data[data["Category"] == state.selected_category]["Sub-Category"].unique()))
+        state.selected_subcategory = "All"
+    apply_changes(state)
 
 def apply_changes(state):
     state.data = data[
@@ -34,17 +37,17 @@ def apply_changes(state):
             <= pd.to_datetime(state.end_date)
         )
     ]
-    state.data = state.data[state.data["Category"] == state.selected_category]
-    state.data = state.data[state.data["Sub-Category"] == state.selected_subcategory]
-    state.chart_data = get_top_city_sales(state.data, state.top_n)
-    state.layout = {
-        "yaxis": {"title": "Revenue (EUR)"},
-        "title": f"Sales by City for {state.selected_category} - {state.selected_subcategory}",
-    }
-    # Show only top N cities on the map as well
-    state.map_fig = generate_vorarlberg_map(state.chart_data)
+    if state.selected_category != "All":
+        state.data = state.data[state.data["Category"] == state.selected_category]
+    if state.selected_subcategory != "All":
+        state.data = state.data[state.data["Sub-Category"] == state.selected_subcategory]
+    update_chart_and_map(state)
 
 def update_top_n(state):
+    update_chart_and_map(state)
+
+
+def update_chart_and_map(state):
     state.chart_data = get_top_city_sales(state.data, state.top_n)
     state.layout = {
         "yaxis": {"title": "Revenue (EUR)"},
@@ -53,10 +56,10 @@ def update_top_n(state):
     state.map_fig = generate_vorarlberg_map(state.chart_data)
 
 
-categories = list(data["Category"].unique())
-selected_category = categories[0]
-selected_subcategory = list(data[data["Category"] == selected_category]["Sub-Category"].unique())[0]
-subcategories = list(data[data["Category"] == selected_category]["Sub-Category"].unique())
+categories = ["All"] + list(data["Category"].unique())
+selected_category = "All"
+subcategories = ["All"] + sorted(list(data["Sub-Category"].unique()))
+selected_subcategory = "All"
 
 start_date = pd.to_datetime(data["Order Date"], format="%d/%m/%Y").min()
 end_date = pd.to_datetime(data["Order Date"], format="%d/%m/%Y").max()
@@ -74,9 +77,9 @@ with tgb.Page() as sales_vorarlberg_page:
             with tgb.layout(columns="1 2 1"):
                 with tgb.part():
                     tgb.text("Filter **From**", mode="md")
-                    tgb.date("{start_date}", format="dd-MM-yyyy")
+                    tgb.date("{start_date}", format="dd-MM-yyyy", on_change=apply_changes)
                     tgb.text("**To**", mode="md")
-                    tgb.date("{end_date}", format="dd-MM-yyyy")
+                    tgb.date("{end_date}", format="dd-MM-yyyy", on_change=apply_changes)
                 with tgb.part():
                     tgb.text("Filter Product **Category**", mode="md")
                     tgb.selector(
@@ -89,7 +92,9 @@ with tgb.Page() as sales_vorarlberg_page:
                     tgb.selector(
                         value="{selected_subcategory}",
                         lov="{subcategories}",
+                        on_change=apply_changes,
                         dropdown=True,
+                        disabled="{selected_category} == 'All'",
                     )
                 with tgb.part(class_name="text-center"):
                     tgb.text("Show top {top_n} cities:")
@@ -100,11 +105,6 @@ with tgb.Page() as sales_vorarlberg_page:
                         step=1,
                         on_change=update_top_n,
                         show_value=True,
-                    )
-                    tgb.button(
-                        "Apply",
-                        class_name="plain apply_button_slider",
-                        on_action=apply_changes,
                     )
         tgb.html("br")
         with tgb.layout(columns="2 3"):
