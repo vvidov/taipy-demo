@@ -1,3 +1,9 @@
+from taipy.gui import navigate
+import taipy.gui.builder as tgb
+from maps.vorarlberg_map import generate_vorarlberg_map
+import pandas as pd
+
+
 TOP_N_MIN = 5
 TOP_N_MAX = 10
 top_n = TOP_N_MIN
@@ -10,10 +16,6 @@ def get_top_city_sales(df, n):
         .head(n)
         .reset_index()
     )
-from taipy.gui import navigate
-import taipy.gui.builder as tgb
-from maps.vorarlberg_map import generate_vorarlberg_map
-import pandas as pd
 
 data = pd.read_csv("data/data_vorarlberg.csv")
 
